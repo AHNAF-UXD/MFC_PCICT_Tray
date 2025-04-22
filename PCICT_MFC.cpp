@@ -14,9 +14,11 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
+
 #include <string>
 #include <cstdlib>
 #include <regex>
+#include <atlbase.h> //Required for CRegKey
 
 using namespace std;
 using json = nlohmann::json;
@@ -34,7 +36,7 @@ END_MESSAGE_MAP()
 PCICTMFCApp::PCICTMFCApp()
 {
 	// support Restart Manager
-	//m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART;
+	m_dwRestartManagerSupportFlags = AFX_RESTART_MANAGER_SUPPORT_RESTART;
 
 	// TODO: add construction code here,
 	// Place all significant initialization in InitInstance
@@ -45,11 +47,31 @@ PCICTMFCApp::PCICTMFCApp()
 
 PCICTMFCApp theApp;
 
+void AddToStartup()
+{
+	CRegKey regKey;
+	LONG lResult;
+	const wchar_t* szAppName = L"PCICT";
+	wchar_t szPath[MAX_PATH];
+
+	GetModuleFileName(NULL, szPath, MAX_PATH);
+
+	lResult = regKey.Open(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", KEY_WRITE);
+	if (lResult == ERROR_SUCCESS)
+	{
+		regKey.SetStringValue(szAppName, szPath);
+		regKey.Close();
+	}
+}
+
 
 // PCICTMFCApp initialization
 
 BOOL PCICTMFCApp::InitInstance()
 {
+
+	AddToStartup(); // Ensure the app runs on startup
+
 	// InitCommonControlsEx() is required on Windows XP if an application
 	// manifest specifies use of ComCtl32.dll version 6 or later to enable
 	// visual styles.  Otherwise, any window creation will fail.

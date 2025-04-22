@@ -25,6 +25,16 @@ public:
 	CString cpuRatingStr;
 
 	CString kbStatusMessage;
+
+	NOTIFYICONDATA m_TrayIconData;
+	BOOL m_bTrayIconVisible;
+
+	void ShowTrayIcon();
+	void RemoveTrayIcon();
+	afx_msg LRESULT OnTrayNotification(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnClose();
+	afx_msg void OnRestoreFromTray();
+
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_PCICT_MFC_DIALOG };
@@ -57,7 +67,7 @@ protected:
 	void OnGetMinMaxInfo(MINMAXINFO* lpMMI);
 	void OnCancel();
 	//void OnOK();
-	void OnClose();
+	//void OnClose();
 	virtual BOOL OnInitDialog();
 	afx_msg void OnSysCommand(UINT nID, LPARAM lParam);
 	afx_msg void OnPaint();
