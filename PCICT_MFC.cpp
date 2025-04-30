@@ -11,6 +11,11 @@
 #include "afxinet.h"
 #include "json.hpp"
 
+#include <taskschd.h>
+#include <comdef.h>
+#pragma comment(lib, "taskschd.lib")
+#pragma comment(lib, "comsupp.lib")
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
@@ -47,21 +52,102 @@ PCICTMFCApp::PCICTMFCApp()
 
 PCICTMFCApp theApp;
 
-void AddToStartup()
+//void AddToStartup()
+//{
+//	CRegKey regKey;
+//	LONG lResult;
+//	const wchar_t* szAppName = L"PCICT";
+//	wchar_t szPath[MAX_PATH];
+//
+//	GetModuleFileName(NULL, szPath, MAX_PATH);
+//
+//	lResult = regKey.Open(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", KEY_WRITE);
+//	if (lResult == ERROR_SUCCESS)
+//	{
+//		AfxMessageBox(szPath);
+//		regKey.SetStringValue(szAppName, szPath);
+//		regKey.Close();
+//	}
+//}
+
+
+BOOL CreateScheduledStartupTask(const CString& taskName, const CString& exePath)
 {
-	CRegKey regKey;
-	LONG lResult;
-	const wchar_t* szAppName = L"PCICT";
-	wchar_t szPath[MAX_PATH];
+	HRESULT hr = CoInitializeEx(NULL, COINIT_MULTITHREADED);
+	if (FAILED(hr)) return FALSE;
 
-	GetModuleFileName(NULL, szPath, MAX_PATH);
+	ITaskService* pService = NULL;
+	hr = CoCreateInstance(CLSID_TaskScheduler, NULL, CLSCTX_INPROC_SERVER, IID_ITaskService, (void**)&pService);
+	if (FAILED(hr)) return FALSE;
 
-	lResult = regKey.Open(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Run", KEY_WRITE);
-	if (lResult == ERROR_SUCCESS)
-	{
-		regKey.SetStringValue(szAppName, szPath);
-		regKey.Close();
+	hr = pService->Connect(_variant_t(), _variant_t(), _variant_t(), _variant_t());
+	if (FAILED(hr)) { pService->Release(); return FALSE; }
+
+	ITaskFolder* pRootFolder = NULL;
+	hr = pService->GetFolder(_bstr_t(L"\\"), &pRootFolder);
+	if (FAILED(hr)) { pService->Release(); return FALSE; }
+
+	pRootFolder->DeleteTask(_bstr_t(taskName), 0); // Clean if exists
+
+	ITaskDefinition* pTask = NULL;
+	hr = pService->NewTask(0, &pTask);
+	if (FAILED(hr)) { pRootFolder->Release(); pService->Release(); return FALSE; }
+
+	IRegistrationInfo* pRegInfo;
+	pTask->get_RegistrationInfo(&pRegInfo);
+	pRegInfo->put_Author(L"ULTRA-X");
+	pRegInfo->Release();
+
+	IPrincipal* pPrincipal;
+	pTask->get_Principal(&pPrincipal);
+	pPrincipal->put_RunLevel(TASK_RUNLEVEL_HIGHEST);
+	pPrincipal->put_LogonType(TASK_LOGON_INTERACTIVE_TOKEN);
+	pPrincipal->Release();
+
+	ITriggerCollection* pTriggerCollection = NULL;
+	pTask->get_Triggers(&pTriggerCollection);
+	ITrigger* pTrigger = NULL;
+	hr = pTriggerCollection->Create(TASK_TRIGGER_LOGON, &pTrigger);
+	if (FAILED(hr)) {
+		pTriggerCollection->Release(); pTask->Release(); pRootFolder->Release(); pService->Release(); return FALSE;
 	}
+	pTrigger->Release();
+	pTriggerCollection->Release();
+
+	IActionCollection* pActionCollection = NULL;
+	pTask->get_Actions(&pActionCollection);
+	IAction* pAction = NULL;
+	hr = pActionCollection->Create(TASK_ACTION_EXEC, &pAction);
+	if (FAILED(hr)) {
+		pActionCollection->Release(); pTask->Release(); pRootFolder->Release(); pService->Release(); return FALSE;
+	}
+
+	IExecAction* pExecAction = NULL;
+	hr = pAction->QueryInterface(IID_IExecAction, (void**)&pExecAction);
+	pExecAction->put_Path(_bstr_t(exePath));
+	pExecAction->Release();
+	pAction->Release();
+	pActionCollection->Release();
+
+	IRegisteredTask* pRegisteredTask = NULL;
+	hr = pRootFolder->RegisterTaskDefinition(
+		_bstr_t(taskName),
+		pTask,
+		TASK_CREATE_OR_UPDATE,
+		_variant_t(),
+		_variant_t(),
+		TASK_LOGON_INTERACTIVE_TOKEN,
+		_variant_t(L""),
+		&pRegisteredTask
+	);
+
+	if (pRegisteredTask) pRegisteredTask->Release();
+	pTask->Release();
+	pRootFolder->Release();
+	pService->Release();
+	CoUninitialize();
+
+	return SUCCEEDED(hr);
 }
 
 
@@ -70,7 +156,16 @@ void AddToStartup()
 BOOL PCICTMFCApp::InitInstance()
 {
 
-	AddToStartup(); // Ensure the app runs on startup
+	//AddToStartup(); // Ensure the app runs on startup
+
+	CString exePath;
+	GetModuleFileName(NULL, exePath.GetBuffer(MAX_PATH), MAX_PATH);
+	exePath.ReleaseBuffer();
+
+	//AfxMessageBox(exePath);
+
+	// Register task if not exists
+	CreateScheduledStartupTask(L"PCICT_MFC_STARTUP", exePath);
 
 	// InitCommonControlsEx() is required on Windows XP if an application
 	// manifest specifies use of ComCtl32.dll version 6 or later to enable

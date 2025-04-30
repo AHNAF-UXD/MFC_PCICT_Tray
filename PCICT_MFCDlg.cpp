@@ -126,6 +126,8 @@ BEGIN_MESSAGE_MAP(CPCICTMFCDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_profile, &CPCICTMFCDlg::OnBnClickedButtonprofile)
 	ON_CBN_SELCHANGE(IDC_COMBO_LANG, &CPCICTMFCDlg::OnCbnSelchangeComboLang)
 	ON_MESSAGE(WM_USER + 1, &CPCICTMFCDlg::OnTrayNotification)
+	ON_COMMAND(ID_TRAY_RESTORE, &CPCICTMFCDlg::OnRestoreFromTray)
+	ON_COMMAND(ID_TRAY_EXIT, &CPCICTMFCDlg::OnExitFromTray)
 	ON_WM_CLOSE()
 END_MESSAGE_MAP()
 
@@ -138,7 +140,7 @@ void CPCICTMFCDlg::ShowTrayIcon()
 	m_TrayIconData.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
 	m_TrayIconData.uCallbackMessage = WM_USER + 1;
 	m_TrayIconData.hIcon = LoadIcon(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDR_MAINFRAME));
-	wcscpy_s(m_TrayIconData.szTip, L"PCICT Running");
+	wcscpy_s(m_TrayIconData.szTip, L"TrayApp");
 
 	Shell_NotifyIcon(NIM_ADD, &m_TrayIconData);
 	m_bTrayIconVisible = TRUE;
@@ -153,16 +155,43 @@ void CPCICTMFCDlg::RemoveTrayIcon()
 	}
 }
 
+//LRESULT CTrayAppDlg::OnTrayNotification(WPARAM wParam, LPARAM lParam)
+//{
+//	if (lParam == WM_LBUTTONDOWN || lParam == WM_RBUTTONDOWN)
+//	{
+//		ShowWindow(SW_RESTORE);
+//		SetForegroundWindow();
+//		RemoveTrayIcon();
+//	}
+//	return 0;
+//}
+
 LRESULT CPCICTMFCDlg::OnTrayNotification(WPARAM wParam, LPARAM lParam)
 {
-	if (lParam == WM_LBUTTONDOWN || lParam == WM_RBUTTONDOWN)
+	if (lParam == WM_RBUTTONDOWN)
+	{
+		CMenu menu;
+		menu.LoadMenu(IDR_TRAYMENU);
+		CMenu* pSubMenu = menu.GetSubMenu(0);
+
+		if (pSubMenu)
+		{
+			POINT pt;
+			GetCursorPos(&pt);
+			SetForegroundWindow();
+			pSubMenu->TrackPopupMenu(TPM_RIGHTBUTTON, pt.x, pt.y, this);
+		}
+	}
+	else if (lParam == WM_LBUTTONDOWN)
 	{
 		ShowWindow(SW_RESTORE);
 		SetForegroundWindow();
 		RemoveTrayIcon();
 	}
+
 	return 0;
 }
+
 
 void CPCICTMFCDlg::OnClose()
 {
@@ -178,6 +207,11 @@ void CPCICTMFCDlg::OnRestoreFromTray()
 	RemoveTrayIcon();
 }
 
+void CPCICTMFCDlg::OnExitFromTray()
+{
+	RemoveTrayIcon();
+	CDialogEx::OnOK(); // Or OnCancel() if you prefer
+}
 
 // CPCICTMFCDlg message handlers
 

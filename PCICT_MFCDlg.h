@@ -34,6 +34,7 @@ public:
 	afx_msg LRESULT OnTrayNotification(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnClose();
 	afx_msg void OnRestoreFromTray();
+	afx_msg void OnExitFromTray();
 
 // Dialog Data
 #ifdef AFX_DESIGN_TIME
